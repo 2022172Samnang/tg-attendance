@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HR Attendance System</title>
+    <link rel="stylesheet" href="styles.css">
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+</head>
+<body>
+    <div class="container">
+        <!-- Login Screen -->
+        <div id="loginScreen" class="screen active">
+            <div class="header">
+                <h1>HR Attendance System</h1>
+                <p>Please login to continue</p>
+            </div>
+            
+            <form id="loginForm" class="form">
+                <div class="form-group">
+                    <label for="employeeCode">Employee Code</label>
+                    <input type="text" id="employeeCode" placeholder="Enter your employee code" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="employeePhone">Phone Number</label>
+                    <input type="tel" id="employeePhone" placeholder="Enter your phone number" required>
+                </div>
+                
+                <button type="submit" class="btn btn-primary">Login</button>
+            </form>
+        </div>
+
+        <!-- Main Dashboard -->
+        <div id="dashboardScreen" class="screen">
+            <div class="header">
+                <h1>Welcome, <span id="employeeName"></span></h1>
+                <p id="currentDateTime"></p>
+            </div>
+            
+            <div class="status-card">
+                <div class="status-info">
+                    <h3>Today's Status</h3>
+                    <div id="attendanceStatus" class="attendance-status">
+                        <span id="checkInTime">Not checked in</span>
+                        <span id="checkOutTime">Not checked out</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="action-buttons">
+                <button id="checkInBtn" class="btn btn-success">Check In</button>
+                <button id="checkOutBtn" class="btn btn-danger" disabled>Check Out</button>
+                <button id="logoutBtn" class="btn btn-secondary">Logout</button>
+            </div>
+        </div>
+
+        <!-- QR Scanner Screen -->
+        <div id="scannerScreen" class="screen">
+            <div class="header">
+                <h1>Scan QR Code</h1>
+                <p>Please scan the QR code at your workplace</p>
+            </div>
+            
+            <div class="scanner-container">
+                <div id="qrReader"></div>
+                <div id="scannerResult" class="scanner-result"></div>
+            </div>
+            
+            <div class="action-buttons">
+                <button id="cancelScanBtn" class="btn btn-secondary">Cancel</button>
+            </div>
+        </div>
+
+        <!-- Location Permission Screen -->
+        <div id="locationScreen" class="screen">
+            <div class="header">
+                <h1>Location Required</h1>
+                <p>Please allow location access to verify your attendance</p>
+            </div>
+            
+            <div class="location-info">
+                <div class="location-icon">📍</div>
+                <p>We need your location to ensure you're at the correct workplace</p>
+                <button id="allowLocationBtn" class="btn btn-primary">Allow Location</button>
+            </div>
+            
+            <div class="action-buttons">
+                <button id="cancelLocationBtn" class="btn btn-secondary">Cancel</button>
+            </div>
+        </div>
+
+        <!-- Loading Screen -->
+        <div id="loadingScreen" class="screen">
+            <div class="loading-spinner"></div>
+            <p id="loadingMessage">Processing...</p>
+        </div>
+    </div>
+
+    <!-- Success/Error Messages -->
+    <div id="messageContainer" class="message-container"></div>
+
+    <script src="app.js"></script>
+</body>
+</html>
