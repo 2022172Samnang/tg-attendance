@@ -209,6 +209,11 @@ class AttendanceApp {
 
     showDashboard() {
         document.getElementById('employeeName').textContent = appState.employee.full_name;
+        
+        // Load attendance status from localStorage first
+        this.loadAttendanceStatus();
+        
+        // Then update the UI
         this.updateAttendanceStatus();
         this.showScreen('dashboardScreen');
     }
@@ -225,6 +230,7 @@ class AttendanceApp {
         
         localStorage.removeItem('employee_token');
         localStorage.removeItem('employee_data');
+        // Note: We don't remove attendance_status here as it should persist across logins for the same day
         
         this.showScreen('loginScreen');
         this.showMessage('Logged out successfully', 'info');
@@ -239,24 +245,85 @@ class AttendanceApp {
 
         if (appState.attendanceStatus.checkedIn) {
             checkInElement.textContent = `Checked in at ${appState.attendanceStatus.checkInTime}`;
-            checkInElement.style.background = '#d4edda';
-            checkInElement.style.color = '#155724';
+            checkInElement.style.background = 'var(--sinet-teal-50)';
+            checkInElement.style.color = 'var(--sinet-teal-700)';
+            checkInElement.style.border = '1px solid var(--sinet-teal-100)';
             
             checkInBtn.disabled = true;
             checkOutBtn.disabled = false;
             
             if (appState.attendanceStatus.checkOutTime) {
                 checkOutElement.textContent = `Checked out at ${appState.attendanceStatus.checkOutTime}`;
-                checkOutElement.style.background = '#d4edda';
-                checkOutElement.style.color = '#155724';
+                checkOutElement.style.background = 'var(--sinet-teal-50)';
+                checkOutElement.style.color = 'var(--sinet-teal-700)';
+                checkOutElement.style.border = '1px solid var(--sinet-teal-100)';
                 checkOutBtn.disabled = true;
+            } else {
+                checkOutElement.textContent = 'Not checked out yet';
+                checkOutElement.style.background = '#fee2e2';
+                checkOutElement.style.color = '#991b1b';
+                checkOutElement.style.border = '1px solid #fecaca';
             }
         } else {
             checkInElement.textContent = 'Not checked in';
             checkOutElement.textContent = 'Not checked out';
+            checkInElement.style.background = '#fee2e2';
+            checkInElement.style.color = '#991b1b';
+            checkInElement.style.border = '1px solid #fecaca';
+            checkOutElement.style.background = '#fee2e2';
+            checkOutElement.style.color = '#991b1b';
+            checkOutElement.style.border = '1px solid #fecaca';
             checkInBtn.disabled = false;
             checkOutBtn.disabled = true;
         }
+    }
+
+    saveAttendanceStatus() {
+        const statusData = {
+            checkedIn: appState.attendanceStatus.checkedIn,
+            checkInTime: appState.attendanceStatus.checkInTime,
+            checkOutTime: appState.attendanceStatus.checkOutTime,
+            date: new Date().toDateString() // Store the date to reset daily
+        };
+        localStorage.setItem('attendance_status', JSON.stringify(statusData));
+        
+        console.log('=== SAVING ATTENDANCE STATUS ===');
+        console.log('Status saved:', statusData);
+        console.log('================================');
+    }
+
+    loadAttendanceStatus() {
+        const savedStatus = localStorage.getItem('attendance_status');
+        const today = new Date().toDateString();
+        
+        if (savedStatus) {
+            const statusData = JSON.parse(savedStatus);
+            
+            console.log('=== LOADING ATTENDANCE STATUS ===');
+            console.log('Saved status:', statusData);
+            console.log('Today:', today);
+            console.log('Saved date:', statusData.date);
+            console.log('=================================');
+            
+            // Only load if it's from today
+            if (statusData.date === today) {
+                appState.attendanceStatus.checkedIn = statusData.checkedIn;
+                appState.attendanceStatus.checkInTime = statusData.checkInTime;
+                appState.attendanceStatus.checkOutTime = statusData.checkOutTime;
+                this.updateAttendanceStatus();
+                return true;
+            } else {
+                // Clear old status if it's from a different day
+                localStorage.removeItem('attendance_status');
+                appState.attendanceStatus = {
+                    checkedIn: false,
+                    checkInTime: null,
+                    checkOutTime: null
+                };
+            }
+        }
+        
+        return false;
     }
 
     // Check-in Process
@@ -472,12 +539,16 @@ class AttendanceApp {
                 if (endpoint === 'check-in') {
                     appState.attendanceStatus.checkedIn = true;
                     appState.attendanceStatus.checkInTime = currentTime;
+                    appState.attendanceStatus.checkOutTime = null;
                     this.showMessage('Check-in successful!', 'success');
                 } else {
                     appState.attendanceStatus.checkOutTime = currentTime;
+                    // Don't set checkedIn to false - they're still checked in for the day
                     this.showMessage('Check-out successful!', 'success');
                 }
                 
+                // Save attendance status to localStorage
+                this.saveAttendanceStatus();
                 this.updateAttendanceStatus();
                 this.showScreen('dashboardScreen');
             } else {
