@@ -147,6 +147,13 @@ class AttendanceApp {
             const data = await response.json();
 
             if (response.ok) {
+                // Validate token exists
+                if (!data.token) {
+                    this.showMessage('Login failed: No token received', 'error');
+                    this.showScreen('loginScreen');
+                    return;
+                }
+
                 appState.isLoggedIn = true;
                 appState.employee = data.employee;
                 appState.token = data.token;
@@ -154,6 +161,12 @@ class AttendanceApp {
                 // Save to localStorage
                 localStorage.setItem('employee_token', data.token);
                 localStorage.setItem('employee_data', JSON.stringify(data.employee));
+                
+                // Debug logging
+                console.log('=== LOGIN SUCCESS ===');
+                console.log('Token received:', data.token ? data.token.substring(0, 20) + '...' : 'NO TOKEN');
+                console.log('Employee:', data.employee);
+                console.log('====================');
                 
                 this.showDashboard();
                 this.showMessage('Login successful!', 'success');
@@ -172,12 +185,20 @@ class AttendanceApp {
         const token = localStorage.getItem('employee_token');
         const employeeData = localStorage.getItem('employee_data');
 
-        if (token && employeeData) {
+        console.log('=== CHECKING LOGIN STATUS ===');
+        console.log('Token from localStorage:', token ? token.substring(0, 20) + '...' : 'NO TOKEN');
+        console.log('Employee data exists:', !!employeeData);
+        console.log('=============================');
+
+        if (token && employeeData && token !== 'undefined' && token !== 'null') {
             appState.isLoggedIn = true;
             appState.token = token;
             appState.employee = JSON.parse(employeeData);
             this.showDashboard();
         } else {
+            // Clear invalid data
+            localStorage.removeItem('employee_token');
+            localStorage.removeItem('employee_data');
             this.showScreen('loginScreen');
         }
     }
@@ -248,6 +269,10 @@ class AttendanceApp {
     // QR Scanner
     startQRScanner(type) {
         const qrReader = new Html5Qrcode("qrReader");
+        this.scanType = type; // Store scan type for later use
+        
+        // Add status message
+        document.getElementById('scannerResult').innerHTML = '<p>Initializing camera...</p>';
         
         qrReader.start(
             { facingMode: "environment" },
@@ -256,17 +281,30 @@ class AttendanceApp {
                 qrbox: { width: 250, height: 250 }
             },
             (decodedText, decodedResult) => {
-                // QR code successfully scanned
-                qrReader.stop();
-                this.handleQRScan(decodedText, type);
+                console.log('QR Code detected:', decodedText);
+                
+                // Stop scanner immediately to prevent multiple scans
+                qrReader.stop().then(() => {
+                    console.log('Scanner stopped');
+                    this.handleQRScan(decodedText, type);
+                }).catch(err => console.error('Error stopping scanner:', err));
             },
             (errorMessage) => {
-                // QR code scan error (can be ignored for most cases)
+                // This is called repeatedly when no QR code is in view
+                // Only log if it's a real error
+                if (!errorMessage.includes('NotFoundException')) {
+                    console.log('QR scan message:', errorMessage);
+                }
             }
         ).catch(err => {
             console.error('QR Scanner error:', err);
+            document.getElementById('scannerResult').innerHTML = '<p style="color: red;">Camera access denied or not available</p>';
             this.showMessage('Camera access denied or not available', 'error');
-            this.showScreen('dashboardScreen');
+            
+            // Return to dashboard after delay
+            setTimeout(() => {
+                this.showScreen('dashboardScreen');
+            }, 2000);
         });
         
         this.qrReader = qrReader;
@@ -274,30 +312,70 @@ class AttendanceApp {
 
     stopQRScanner() {
         if (this.qrReader) {
-            this.qrReader.stop().catch(err => console.error('Stop scanner error:', err));
+            this.qrReader.stop().then(() => {
+                console.log('QR scanner stopped');
+                // Clear the scanner display
+                document.getElementById('qrReader').innerHTML = '';
+            }).catch(err => console.error('Stop scanner error:', err));
+        }
+        
+        // Clear any timeout
+        if (this.scannerTimeout) {
+            clearTimeout(this.scannerTimeout);
+            this.scannerTimeout = null;
         }
     }
 
     handleQRScan(qrData, type) {
+        console.log('Processing QR data:', qrData);
+        console.log('Scan type:', type);
+        
         try {
+            // Parse the QR code JSON data
             const qrInfo = JSON.parse(qrData);
-            appState.qrData = qrInfo;
+            console.log('Parsed QR info:', qrInfo);
             
+            // Validate QR code structure
+            if (!qrInfo.hash || !qrInfo.lat_lon) {
+                throw new Error('Invalid QR code structure - missing hash or lat_lon');
+            }
+            
+            // Store QR data in app state
+            appState.qrData = qrInfo;
+            appState.scanType = type;
+            
+            // Display success message
             document.getElementById('scannerResult').innerHTML = `
-                <p><strong>QR Code Scanned Successfully!</strong></p>
-                <p>Location: ${qrInfo.location || 'Unknown'}</p>
-                <p>Requesting location permission...</p>
+                <div style="background: #d4edda; padding: 15px; border-radius: 8px; margin-top: 10px;">
+                    <p style="color: #155724; font-weight: bold; margin-bottom: 10px;">✓ QR Code Scanned Successfully!</p>
+                    <p style="color: #155724;">Branch Location: ${qrInfo.lat_lon}</p>
+                    <p style="color: #155724; margin-top: 10px;">Requesting location permission...</p>
+                </div>
             `;
             
-            // Request location after QR scan
+            // Request location after showing success message
             setTimeout(() => {
                 this.showScreen('locationScreen');
-            }, 2000);
+            }, 1500);
             
         } catch (error) {
             console.error('QR parse error:', error);
-            this.showMessage('Invalid QR code format', 'error');
-            this.showScreen('dashboardScreen');
+            console.error('Raw QR data:', qrData);
+            
+            // Show detailed error message
+            document.getElementById('scannerResult').innerHTML = `
+                <div style="background: #f8d7da; padding: 15px; border-radius: 8px; margin-top: 10px;">
+                    <p style="color: #721c24; font-weight: bold;">✗ Invalid QR Code</p>
+                    <p style="color: #721c24; font-size: 12px;">Please scan a valid attendance QR code</p>
+                </div>
+            `;
+            
+            this.showMessage('Invalid QR code format. Please scan a valid attendance QR code.', 'error');
+            
+            // Return to dashboard after delay
+            setTimeout(() => {
+                this.showScreen('dashboardScreen');
+            }, 3000);
         }
     }
 
@@ -342,12 +420,19 @@ class AttendanceApp {
             return;
         }
 
+        // Check if we have a valid token
+        if (!appState.token) {
+            this.showMessage('Authentication token missing. Please login again.', 'error');
+            this.handleLogout();
+            return;
+        }
+
         const now = new Date();
         const currentTime = now.toTimeString().split(' ')[0]; // HH:MM:SS format
         
         const attendanceData = {
             scan_time: currentTime,
-            tg_id: tg.initDataUnsafe?.user?.id?.toString() || 'test_tg_id',
+            tg_id: 'test_tg_id',
             hash: appState.qrData.hash,
             lat_lon: appState.qrData.lat_lon,
             ipv4: await this.getClientIP(),
@@ -359,6 +444,13 @@ class AttendanceApp {
         const action = appState.attendanceStatus.checkedIn ? 'Checking out' : 'Checking in';
         
         this.showLoading(`${action}...`);
+
+        // Debug logging
+        console.log('=== ATTENDANCE DEBUG ===');
+        console.log('Token:', appState.token ? appState.token.substring(0, 20) + '...' : 'NO TOKEN');
+        console.log('Endpoint:', endpoint);
+        console.log('Data:', attendanceData);
+        console.log('=======================');
 
         try {
             const response = await fetch(`${API_BASE_URL}/attendance/${endpoint}`, {
