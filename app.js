@@ -147,8 +147,11 @@ class AttendanceApp {
             const data = await response.json();
 
             if (response.ok) {
+                // The API returns access_token, not token
+                const token = data.access_token || data.token;
+                
                 // Validate token exists
-                if (!data.token) {
+                if (!token) {
                     this.showMessage('Login failed: No token received', 'error');
                     this.showScreen('loginScreen');
                     return;
@@ -156,16 +159,17 @@ class AttendanceApp {
 
                 appState.isLoggedIn = true;
                 appState.employee = data.employee;
-                appState.token = data.token;
+                appState.token = token;
                 
                 // Save to localStorage
-                localStorage.setItem('employee_token', data.token);
+                localStorage.setItem('employee_token', token);
                 localStorage.setItem('employee_data', JSON.stringify(data.employee));
                 
                 // Debug logging
                 console.log('=== LOGIN SUCCESS ===');
-                console.log('Token received:', data.token ? data.token.substring(0, 20) + '...' : 'NO TOKEN');
+                console.log('Token received:', token ? token.substring(0, 20) + '...' : 'NO TOKEN');
                 console.log('Employee:', data.employee);
+                console.log('Full login response:', data);
                 console.log('====================');
                 
                 this.showDashboard();
