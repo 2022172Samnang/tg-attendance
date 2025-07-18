@@ -17,7 +17,7 @@ let appState = {
 };
 
 // API Configuration
-const API_BASE_URL = 'https://16b03ba1c0e2.ngrok-free.app/api';
+const API_BASE_URL = 'https://b6dbc5a4a13a.ngrok-free.app/api';
 
 // Initialize App
 class AttendanceApp {
